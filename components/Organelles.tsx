@@ -61,16 +61,16 @@ const useRibosomeTexture = () => {
 
 // --- Helper: Label Component ---
 const OrganelleLabel: React.FC<{ text: string; position?: [number, number, number] }> = ({ text, position = [0, 0, 0] }) => (
-  <Html position={position} distanceFactor={10} center zIndexRange={[100, 0]}>
+  <Html position={position} center zIndexRange={[100, 0]} style={{ pointerEvents: 'none' }}>
     <div className="pointer-events-none select-none flex flex-col items-center">
        {/* Label Container */}
-       <div className="bg-slate-900/95 backdrop-blur-xl text-teal-50 text-xl font-bold px-6 py-3 rounded-xl border-2 border-teal-500/50 shadow-[0_0_30px_rgba(20,184,166,0.4)] animate-in fade-in zoom-in duration-300 whitespace-nowrap tracking-wide mb-1">
+       <div className="bg-slate-900/95 backdrop-blur-xl text-teal-50 text-base font-bold px-4 py-2 rounded-xl border-2 border-teal-500/50 shadow-[0_0_30px_rgba(20,184,166,0.4)] animate-in fade-in zoom-in duration-300 whitespace-nowrap tracking-wide mb-1">
          {text}
        </div>
        {/* Leader Line */}
-       <div className="w-1 h-16 bg-gradient-to-b from-teal-500 to-teal-500/0 origin-top"></div>
+       <div className="w-0.5 h-8 bg-gradient-to-b from-teal-500 to-teal-500/0 origin-top"></div>
        {/* Anchor Point */}
-       <div className="w-4 h-4 bg-teal-400 rounded-full shadow-[0_0_15px_rgba(20,184,166,1)] animate-pulse border-2 border-white/20"></div>
+       <div className="w-3 h-3 bg-teal-400 rounded-full shadow-[0_0_15px_rgba(20,184,166,1)] animate-pulse border-2 border-white/20"></div>
     </div>
   </Html>
 );

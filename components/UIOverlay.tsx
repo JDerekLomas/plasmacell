@@ -1,15 +1,26 @@
-import React, { useState } from 'react';
-import { MousePointer2, Info, X, Activity, PlayCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { MousePointer2, Info, X, Activity, PlayCircle, ZoomIn, ZoomOut, Smartphone, Monitor } from 'lucide-react';
 import { INFO_CONTENT } from '../constants';
 
 interface UIOverlayProps {
   activeFeature: string | null;
   onClose: () => void;
+  onZoom: (direction: 'in' | 'out') => void;
 }
 
-const UIOverlay: React.FC<UIOverlayProps> = ({ activeFeature, onClose }) => {
+const UIOverlay: React.FC<UIOverlayProps> = ({ activeFeature, onClose, onZoom }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [showIntro, setShowIntro] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.matchMedia('(max-width: 768px)').matches || 'ontouchstart' in window);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   if (showIntro) {
       return (
@@ -113,7 +124,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({ activeFeature, onClose }) => {
       <div className="w-full flex justify-between items-end relative animate-in fade-in slide-in-from-bottom-4 duration-700 delay-200">
          {/* Left: Info Button */}
          <div className="pointer-events-auto">
-            <button 
+            <button
                 onClick={() => setShowInfo(true)}
                 className="group flex items-center gap-3 bg-slate-900/90 hover:bg-teal-600 border border-teal-500/50 hover:border-teal-400 text-teal-50 px-5 py-3 rounded-full shadow-[0_0_20px_rgba(15,23,42,0.6)] transition-all duration-300 backdrop-blur-md"
             >
@@ -122,7 +133,7 @@ const UIOverlay: React.FC<UIOverlayProps> = ({ activeFeature, onClose }) => {
             </button>
          </div>
 
-         {/* Center: Hint (Absolute Positioned to be dead center of screen width if desired, or just centered in space) */}
+         {/* Center: Hint */}
          <div className={`pointer-events-none absolute left-1/2 bottom-0 -translate-x-1/2 transition-all duration-500 ${activeFeature || showInfo ? 'opacity-0 translate-y-10' : 'opacity-100 translate-y-0'}`}>
             <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-200 px-6 py-3 rounded-full flex items-center gap-3 shadow-2xl animate-pulse">
                 <MousePointer2 size={18} className="text-teal-400" />
@@ -130,8 +141,41 @@ const UIOverlay: React.FC<UIOverlayProps> = ({ activeFeature, onClose }) => {
             </div>
          </div>
 
-         {/* Right Spacer */}
-         <div className="w-24"></div>
+         {/* Right: Zoom Controls */}
+         <div className="pointer-events-auto flex flex-col items-end gap-3">
+            {/* Zoom Buttons */}
+            <div className="flex gap-2">
+               <button
+                  onClick={() => onZoom('in')}
+                  className="bg-slate-900/90 hover:bg-teal-600 border border-teal-500/50 hover:border-teal-400 text-teal-50 p-3 rounded-full shadow-lg transition-all duration-300 backdrop-blur-md"
+                  aria-label="Zoom in"
+               >
+                  <ZoomIn size={20} />
+               </button>
+               <button
+                  onClick={() => onZoom('out')}
+                  className="bg-slate-900/90 hover:bg-teal-600 border border-teal-500/50 hover:border-teal-400 text-teal-50 p-3 rounded-full shadow-lg transition-all duration-300 backdrop-blur-md"
+                  aria-label="Zoom out"
+               >
+                  <ZoomOut size={20} />
+               </button>
+            </div>
+
+            {/* Zoom Instructions */}
+            <div className="bg-slate-900/60 backdrop-blur-md border border-white/10 text-slate-300 px-4 py-2 rounded-lg text-xs flex items-center gap-2">
+               {isMobile ? (
+                  <>
+                     <Smartphone size={14} className="text-teal-400" />
+                     <span>Pinch to zoom • Drag to rotate</span>
+                  </>
+               ) : (
+                  <>
+                     <Monitor size={14} className="text-teal-400" />
+                     <span>Scroll to zoom • Drag to rotate</span>
+                  </>
+               )}
+            </div>
+         </div>
       </div>
     </div>
   );
