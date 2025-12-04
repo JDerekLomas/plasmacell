@@ -1,0 +1,5 @@
+{
+  "name": "Plasma Cell 3D Visualization",
+  "description": "A biologically accurate, interactive 3D visualization of an activated B-lymphocyte (Plasma Cell) featuring eccentric nucleus placement, massive RER volume, and organelle animation.",
+  "requestFramePermissions": []
+}
