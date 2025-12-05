@@ -153,699 +153,225 @@ const useAntibodyGeometry = () => {
     }, []);
 };
 
-// --- Nucleus (Enhanced with nucleolus and chromatin) ---
+// --- Nucleus (Simplified Sphere) ---
 export const Nucleus: React.FC<OrganelleProps> = ({ onSelect, activeFeature }) => {
-  const groupRef = useRef<THREE.Group>(null);
   const { hovered, handlers } = useInteraction("Nucleus", onSelect);
   const isSelected = activeFeature === "Nucleus";
   const { opacity, transparent } = useFadeLogic("Nucleus", activeFeature);
 
-  // Generate chromatin strand curves
-  const chromatinCurves = useMemo(() => {
-    const curves = [];
-    for (let i = 0; i < 12; i++) {
-      const points = [];
-      for (let j = 0; j < 5; j++) {
-        const r = 1.5 + Math.random() * 0.5;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        points.push(new THREE.Vector3(
-          r * Math.sin(phi) * Math.cos(theta),
-          r * Math.sin(phi) * Math.sin(theta),
-          r * Math.cos(phi)
-        ));
-      }
-      curves.push(new THREE.CatmullRomCurve3(points));
-    }
-    return curves;
-  }, []);
-
-  useFrame(({ clock }) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y = clock.getElapsedTime() * 0.02;
-    }
-  });
-
   return (
-    <group ref={groupRef} position={DIMENSIONS.NUCLEUS_OFFSET} {...handlers}>
-      {/* Nuclear Envelope (outer membrane) */}
+    <group position={DIMENSIONS.NUCLEUS_OFFSET} {...handlers}>
+      {/* Main Nuclear Envelope */}
       <mesh castShadow receiveShadow>
         <sphereGeometry args={[DIMENSIONS.NUCLEUS_RADIUS, 64, 64]} />
-        <meshPhysicalMaterial
-          color={hovered && !activeFeature ? '#3d255e' : COLORS.NUCLEUS}
-          roughness={0.3}
-          metalness={0.1}
-          transparent={true}
-          opacity={opacity * 0.7}
-          clearcoat={0.3}
-        />
-      </mesh>
-
-      {/* Nucleoplasm (inner material) */}
-      <mesh>
-        <sphereGeometry args={[DIMENSIONS.NUCLEUS_RADIUS * 0.95, 48, 48]} />
-        <meshStandardMaterial
-          color={'#3a2255'}
-          roughness={0.5}
-          emissive={'#1a0a30'}
-          emissiveIntensity={0.4}
-          transparent={transparent}
-          opacity={opacity * 0.85}
-        />
-      </mesh>
-
-      {/* Nucleolus (dense body where ribosomes are made) */}
-      <mesh position={[0.5, 0.3, 0.4]} castShadow>
-        <sphereGeometry args={[0.6, 32, 32]} />
-        <meshStandardMaterial
-          color={'#1a0830'}
-          roughness={0.6}
-          emissive={'#0a0015'}
-          emissiveIntensity={0.6}
+        <meshStandardMaterial 
+          color={hovered && !activeFeature ? '#3d255e' : COLORS.NUCLEUS} 
+          roughness={0.5} 
+          metalness={0.2}
           transparent={transparent}
           opacity={opacity}
         />
       </mesh>
-
-      {/* Second smaller nucleolus */}
-      <mesh position={[-0.4, -0.2, 0.5]} castShadow>
-        <sphereGeometry args={[0.35, 24, 24]} />
-        <meshStandardMaterial
-          color={'#1a0830'}
-          roughness={0.6}
-          emissive={'#0a0015'}
-          emissiveIntensity={0.5}
-          transparent={transparent}
-          opacity={opacity}
-        />
-      </mesh>
-
-      {/* Chromatin strands (DNA material) */}
-      {chromatinCurves.map((curve, i) => (
-        <mesh key={`chromatin-${i}`}>
-          <tubeGeometry args={[curve, 20, 0.04, 8, false]} />
-          <meshStandardMaterial
-            color={'#5533aa'}
-            roughness={0.5}
-            emissive={'#220055'}
-            emissiveIntensity={0.3}
-            transparent={transparent}
-            opacity={opacity * 0.8}
-          />
-        </mesh>
-      ))}
-
       {isSelected && <OrganelleLabel text="Nucleus (The Boss)" position={[0, 3, 0]} />}
     </group>
   );
 };
 
-// --- Helper: Create curved Golgi cisterna geometry ---
-const useGolgiCisternaGeometry = (radius: number, curvature: number) => {
-  return useMemo(() => {
-    const geometry = new THREE.TorusGeometry(radius, 0.08, 12, 48, Math.PI * 1.6);
-    const positions = geometry.attributes.position;
-
-    // Flatten and curve it
-    for (let i = 0; i < positions.count; i++) {
-      const y = positions.getY(i);
-      positions.setY(i, y * 0.4); // Flatten
-
-      // Add organic waviness
-      const x = positions.getX(i);
-      const z = positions.getZ(i);
-      positions.setY(i, positions.getY(i) + Math.sin(x * 3 + z * 2) * 0.02);
-    }
-
-    geometry.computeVertexNormals();
-    return geometry;
-  }, [radius, curvature]);
-};
-
-// --- Golgi Apparatus (Enhanced with curved cisternae and budding vesicles) ---
+// --- Golgi Apparatus ---
 export const Golgi: React.FC<OrganelleProps> = ({ onSelect, activeFeature }) => {
   const groupRef = useRef<THREE.Group>(null);
   const { hovered, handlers } = useInteraction("Golgi", onSelect);
   const isSelected = activeFeature === "Golgi";
   const { opacity, transparent } = useFadeLogic("Golgi", activeFeature);
 
-  // Create cisterna geometries for the stack
-  const cisternae = useMemo(() => {
-    return Array.from({ length: 6 }).map((_, i) => ({
-      key: i,
-      radius: 1.3 - Math.abs(i - 2.5) * 0.1,
-      yOffset: (i - 2.5) * 0.18,
-      xOffset: i * 0.06,
-      rotation: (i - 2.5) * 0.08
-    }));
-  }, []);
-
-  // Budding vesicles on cis and trans faces
-  const buddingVesicles = useMemo(() => {
-    const vesicles = [];
-    // Trans face (output side) - more vesicles
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 1.4 - Math.PI * 0.7;
-      vesicles.push({
-        position: [
-          Math.cos(angle) * 1.5 + 0.3,
-          (Math.random() - 0.5) * 0.8,
-          Math.sin(angle) * 0.8
-        ] as [number, number, number],
-        scale: 0.06 + Math.random() * 0.04,
-        side: 'trans'
-      });
-    }
-    // Cis face (input side) - fewer vesicles
-    for (let i = 0; i < 4; i++) {
-      const angle = (i / 4) * Math.PI * 1.2 - Math.PI * 0.6;
-      vesicles.push({
-        position: [
-          Math.cos(angle) * 1.4 - 0.4,
-          (Math.random() - 0.5) * 0.6,
-          Math.sin(angle) * 0.7
-        ] as [number, number, number],
-        scale: 0.05 + Math.random() * 0.03,
-        side: 'cis'
-      });
-    }
-    return vesicles;
-  }, []);
-
   useFrame(({ clock }) => {
     if (groupRef.current) {
-      const t = clock.getElapsedTime();
-      groupRef.current.position.y = Math.sin(t * 0.5) * 0.15;
-      groupRef.current.rotation.z = 0.3 + Math.sin(t * 0.3) * 0.05;
+      groupRef.current.position.y = Math.sin(clock.getElapsedTime() * 0.5) * 0.2;
     }
   });
 
+  const discs = useMemo(() => {
+    return Array.from({ length: 5 }).map((_, i) => ({
+      key: i,
+      scale: 1 - Math.abs(i - 2) * 0.15,
+      yOffset: (i - 2) * 0.25,
+      curvature: (i - 2) * 0.1
+    }));
+  }, []);
+
   return (
-    <group ref={groupRef} position={DIMENSIONS.GOLGI_POS} rotation={[0.2, 0.5, 0.3]} {...handlers}>
-      {/* Stacked cisternae */}
-      {cisternae.map((c) => (
-        <mesh
-          key={c.key}
-          position={[c.xOffset, c.yOffset, 0]}
-          rotation={[Math.PI / 2, 0, c.rotation]}
-          castShadow
-          receiveShadow
-        >
-          <torusGeometry args={[c.radius, 0.07, 10, 40, Math.PI * 1.6]} />
-          <meshStandardMaterial
-            color={COLORS.GOLGI}
-            emissive={hovered && !activeFeature ? '#403000' : '#201500'}
-            emissiveIntensity={0.3}
-            roughness={0.35}
-            metalness={0.1}
+    <group ref={groupRef} position={DIMENSIONS.GOLGI_POS} rotation={[0, 0, 0.3]} {...handlers}>
+      {discs.map((disc) => (
+        <mesh key={disc.key} position={[0, disc.yOffset, 0]} rotation={[0, 0, disc.curvature]} castShadow receiveShadow>
+          <cylinderGeometry args={[1.4 * disc.scale, 1.4 * disc.scale, 0.1, 32]} />
+          <meshStandardMaterial 
+            color={COLORS.GOLGI} 
+            emissive={hovered && !activeFeature ? '#403000' : '#000000'}
+            roughness={0.3} 
             transparent={transparent}
-            opacity={opacity * 0.9}
-            side={THREE.DoubleSide}
+            opacity={opacity}
           />
         </mesh>
       ))}
-
-      {/* Budding vesicles */}
-      {buddingVesicles.map((v, i) => (
-        <mesh key={`vesicle-${i}`} position={v.position} castShadow>
-          <sphereGeometry args={[v.scale, 12, 12]} />
-          <meshStandardMaterial
-            color={v.side === 'trans' ? '#ffdd55' : '#eecc44'}
-            emissive={hovered && !activeFeature ? '#302000' : '#151000'}
-            emissiveIntensity={0.4}
-            roughness={0.3}
-            transparent={transparent}
-            opacity={opacity * 0.85}
-          />
-        </mesh>
-      ))}
-
       {isSelected && <OrganelleLabel text="Golgi (Packaging)" position={[0, 2, 0]} />}
     </group>
   );
 };
 
-// --- Centrioles (Enhanced with 9-triplet microtubule structure) ---
+// --- Centrioles ---
 export const Centrioles: React.FC<OrganelleProps> = ({ onSelect, activeFeature }) => {
-  const groupRef = useRef<THREE.Group>(null);
   const { hovered, handlers } = useInteraction("Centrioles", onSelect);
   const isSelected = activeFeature === "Centrioles";
   const { opacity, transparent } = useFadeLogic("Centrioles", activeFeature);
-
+  
   // Position near the Golgi (the Hof area)
   const position = [3.2, 0.5, 0.5] as [number, number, number];
 
-  // Generate triplet positions for a centriole (9 triplets arranged in a cylinder)
-  const triplets = useMemo(() => {
-    const result = [];
-    for (let i = 0; i < 9; i++) {
-      const baseAngle = (i / 9) * Math.PI * 2;
-      // Each triplet has 3 microtubules
-      for (let t = 0; t < 3; t++) {
-        const r = 0.06 + t * 0.018;
-        const angle = baseAngle + t * 0.12;
-        result.push({
-          x: Math.cos(angle) * r,
-          z: Math.sin(angle) * r
-        });
-      }
-    }
-    return result;
-  }, []);
-
-  useFrame(({ clock }) => {
-    if (groupRef.current) {
-      groupRef.current.rotation.y = clock.getElapsedTime() * 0.1;
-    }
-  });
-
   return (
-    <group ref={groupRef} position={position} {...handlers}>
-      {/* Centriole 1 - Vertical */}
-      <group>
-        {triplets.map((pos, i) => (
-          <mesh key={`c1-${i}`} position={[pos.x, 0, pos.z]} castShadow>
-            <cylinderGeometry args={[0.012, 0.012, 0.35, 6]} />
-            <meshStandardMaterial
-              color={COLORS.CENTRIOLE}
-              emissive={hovered && !activeFeature ? '#602040' : '#200010'}
-              emissiveIntensity={0.4}
-              roughness={0.4}
-              metalness={0.2}
-              transparent={transparent}
-              opacity={opacity}
-            />
-          </mesh>
-        ))}
-        {/* Central hub */}
-        <mesh>
-          <cylinderGeometry args={[0.02, 0.02, 0.3, 8]} />
-          <meshStandardMaterial
-            color={'#cc88aa'}
-            emissive={'#401030'}
-            emissiveIntensity={0.3}
-            transparent={transparent}
-            opacity={opacity * 0.7}
-          />
-        </mesh>
-      </group>
-
-      {/* Centriole 2 - Perpendicular */}
-      <group position={[0.18, 0.15, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        {triplets.map((pos, i) => (
-          <mesh key={`c2-${i}`} position={[pos.x, 0, pos.z]} castShadow>
-            <cylinderGeometry args={[0.012, 0.012, 0.35, 6]} />
-            <meshStandardMaterial
-              color={COLORS.CENTRIOLE}
-              emissive={hovered && !activeFeature ? '#602040' : '#200010'}
-              emissiveIntensity={0.4}
-              roughness={0.4}
-              metalness={0.2}
-              transparent={transparent}
-              opacity={opacity}
-            />
-          </mesh>
-        ))}
-        {/* Central hub */}
-        <mesh>
-          <cylinderGeometry args={[0.02, 0.02, 0.3, 8]} />
-          <meshStandardMaterial
-            color={'#cc88aa'}
-            emissive={'#401030'}
-            emissiveIntensity={0.3}
-            transparent={transparent}
-            opacity={opacity * 0.7}
-          />
-        </mesh>
-      </group>
-
-      {/* Pericentriolar material (PCM) - fuzzy cloud around centrioles */}
-      <mesh>
-        <sphereGeometry args={[0.25, 16, 16]} />
-        <meshStandardMaterial
-          color={'#ffaacc'}
-          transparent={true}
-          opacity={opacity * 0.15}
-          roughness={1}
+    <group position={position} {...handlers} rotation={[0.5, 0.5, 0]}>
+      {/* Centriole 1 */}
+      <mesh castShadow receiveShadow>
+        <cylinderGeometry args={[0.08, 0.08, 0.4, 12]} />
+        <meshStandardMaterial 
+          color={COLORS.CENTRIOLE} 
+          emissive={hovered && !activeFeature ? '#602040' : '#000000'} 
+          transparent={transparent}
+          opacity={opacity}
         />
       </mesh>
-
+      {/* Centriole 2 (Perpendicular) */}
+      <mesh position={[0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.08, 0.08, 0.4, 12]} />
+        <meshStandardMaterial 
+          color={COLORS.CENTRIOLE} 
+          emissive={hovered && !activeFeature ? '#602040' : '#000000'} 
+          transparent={transparent}
+          opacity={opacity}
+        />
+      </mesh>
       {isSelected && <OrganelleLabel text="Centrioles" position={[0, 0.8, 0]} />}
     </group>
   );
 };
 
-// --- Helper: Create curved cisterna geometry ---
-const useCisternaGeometry = (width: number, height: number, curvature: number, segments: number = 24) => {
-  return useMemo(() => {
-    const geometry = new THREE.PlaneGeometry(width, height, segments, Math.floor(segments * 0.6));
-    const positions = geometry.attributes.position;
-
-    for (let i = 0; i < positions.count; i++) {
-      const x = positions.getX(i);
-      const y = positions.getY(i);
-
-      // Curve the sheet to wrap (like a taco shell)
-      const curve = curvature * (1 - Math.pow((x / (width / 2)), 2));
-
-      // Add organic waviness
-      const wave = Math.sin(x * 3) * 0.08 + Math.sin(y * 4 + x) * 0.05;
-
-      // Roll the edges (characteristic of ER sheets)
-      const edgeDistX = Math.abs(x) / (width / 2);
-      const edgeDistY = Math.abs(y) / (height / 2);
-      const edgeDist = Math.max(edgeDistX, edgeDistY);
-      let roll = 0;
-      if (edgeDist > 0.7) {
-        roll = ((edgeDist - 0.7) / 0.3) ** 2 * 0.15;
-      }
-
-      positions.setZ(i, curve + wave + roll);
-    }
-
-    geometry.computeVertexNormals();
-    return geometry;
-  }, [width, height, curvature, segments]);
-};
-
-// --- Rough Endoplasmic Reticulum (RER) - Improved with stacked cisternae ---
+// --- Rough Endoplasmic Reticulum (RER) ---
 export const RER: React.FC<OrganelleProps> = ({ onSelect, activeFeature }) => {
   const groupRef = useRef<THREE.Group>(null);
-  const ribosomesRef = useRef<THREE.InstancedMesh>(null);
   const ribosomeTexture = useRibosomeTexture();
   const { hovered, handlers } = useInteraction("RER", onSelect);
   const isSelected = activeFeature === "RER";
   const { opacity, transparent } = useFadeLogic("RER", activeFeature);
-
-  // Create cisterna geometries of varying sizes
-  const largeGeom = useCisternaGeometry(5.0, 3.0, 0.8);
-  const medGeom = useCisternaGeometry(4.0, 2.5, 0.6);
-  const smallGeom = useCisternaGeometry(3.0, 2.0, 0.5);
-
-  // Define stacks of cisternae in the tail region
-  const cisternaStacks = useMemo(() => {
-    const stacks = [];
-
-    // Main stack 1 - Large, fills center-left of cell
-    for (let i = 0; i < 6; i++) {
-      stacks.push({
-        geometry: 'large',
-        position: [-3.0 + i * 0.15, i * 0.35 - 0.9, 0.5 + (Math.random() - 0.5) * 0.3],
-        rotation: [0.1, 0.3 + i * 0.05, (Math.random() - 0.5) * 0.15],
-        scale: 1.0 - i * 0.05
-      });
+  
+  const rerLayers = useMemo(() => {
+    const layers = [];
+    // Concentrate RER in the negative X space (The "Tail" of the ovoid)
+    for (let i = 0; i < 7; i++) {
+       layers.push({
+           radius: 3.5 + i * 0.5,
+           tube: 0.2, 
+           rot: [Math.random() * 0.5, Math.random() * 3, Math.random() * 0.5],
+           // Shift position towards negative X to fill the ovoid shape
+           pos: [-2.5 + (Math.random() * 1), (Math.random()-0.5), (Math.random()-0.5)]
+       });
     }
-
-    // Stack 2 - Upper region
-    for (let i = 0; i < 5; i++) {
-      stacks.push({
-        geometry: 'medium',
-        position: [-5.0 + i * 0.12, 2.0 + i * 0.3, -0.5 + (Math.random() - 0.5) * 0.4],
-        rotation: [0.2, -0.5 + i * 0.08, (Math.random() - 0.5) * 0.1],
-        scale: 0.9 - i * 0.04
-      });
-    }
-
-    // Stack 3 - Lower region
-    for (let i = 0; i < 5; i++) {
-      stacks.push({
-        geometry: 'medium',
-        position: [-4.5 + i * 0.1, -2.2 + i * 0.28, 0.8 + (Math.random() - 0.5) * 0.3],
-        rotation: [-0.15, 0.8 + i * 0.06, (Math.random() - 0.5) * 0.12],
-        scale: 0.85 - i * 0.03
-      });
-    }
-
-    // Stack 4 - Far tail
-    for (let i = 0; i < 4; i++) {
-      stacks.push({
-        geometry: 'small',
-        position: [-7.0 + i * 0.08, 0.5 + i * 0.25, -1.0 + (Math.random() - 0.5) * 0.5],
-        rotation: [0.3, 1.2 + i * 0.1, (Math.random() - 0.5) * 0.15],
-        scale: 0.75 - i * 0.05
-      });
-    }
-
-    // Stack 5 - Behind nucleus connection
-    for (let i = 0; i < 4; i++) {
-      stacks.push({
-        geometry: 'small',
-        position: [0.5 + i * 0.1, -0.5 + i * 0.22, 2.0 + (Math.random() - 0.5) * 0.3],
-        rotation: [0.0, -1.0 + i * 0.05, (Math.random() - 0.5) * 0.1],
-        scale: 0.7 - i * 0.04
-      });
-    }
-
-    // Stack 6 - More tail coverage
-    for (let i = 0; i < 5; i++) {
-      stacks.push({
-        geometry: 'medium',
-        position: [-6.0 + i * 0.12, -0.8 + i * 0.3, -1.5 + (Math.random() - 0.5) * 0.4],
-        rotation: [0.1, 2.0 + i * 0.07, (Math.random() - 0.5) * 0.1],
-        scale: 0.8 - i * 0.03
-      });
-    }
-
-    return stacks;
+    // Specific filler shapes for the elongated tail
+    layers.push(
+        { radius: 6.0, tube: 0.3, rot: [0, 1.6, 0.2], pos: [-2.0, 0, 0] },
+        { radius: 5.0, tube: 0.25, rot: [0.2, 1.4, -0.2], pos: [-4.0, 0.5, 0] },
+        { radius: 4.5, tube: 0.25, rot: [-0.2, 1.8, 0.1], pos: [-5.0, -0.5, 0.5] },
+        { radius: 5.5, tube: 0.3, rot: [1.5, 0.2, 0], pos: [-3.5, 0, 0] },
+        { radius: 4.0, tube: 0.2, rot: [1.8, 0.5, 0], pos: [-6.0, 1.0, -1.0] }
+    );
+    return layers;
   }, []);
 
-  // Generate ribosome positions on cisternae surfaces
-  const ribosomeData = useMemo(() => {
-    const ribosomes: { position: [number, number, number] }[] = [];
-    const ribosomeCount = 800; // Dense ribosome coverage
-
-    cisternaStacks.forEach((stack, stackIndex) => {
-      // More ribosomes on larger cisternae
-      const countForThis = stack.geometry === 'large' ? 35 : stack.geometry === 'medium' ? 25 : 18;
-
-      for (let r = 0; r < countForThis; r++) {
-        // Random position on the cisterna surface
-        const localX = (Math.random() - 0.5) * (stack.geometry === 'large' ? 4.5 : stack.geometry === 'medium' ? 3.5 : 2.5);
-        const localY = (Math.random() - 0.5) * (stack.geometry === 'large' ? 2.8 : stack.geometry === 'medium' ? 2.2 : 1.8);
-        const localZ = 0.08 * (Math.random() > 0.5 ? 1 : -1); // Both sides
-
-        // Transform to world position (approximate)
-        const pos = stack.position;
-        ribosomes.push({
-          position: [
-            pos[0] + localX * stack.scale * Math.cos(stack.rotation[1]) - localZ * Math.sin(stack.rotation[1]),
-            pos[1] + localY * stack.scale,
-            pos[2] + localX * stack.scale * Math.sin(stack.rotation[1]) + localZ * Math.cos(stack.rotation[1])
-          ] as [number, number, number]
-        });
-      }
-    });
-
-    return ribosomes;
-  }, [cisternaStacks]);
-
-  // Set up instanced ribosomes
-  useLayoutEffect(() => {
-    if (!ribosomesRef.current) return;
-    const tempObj = new THREE.Object3D();
-    ribosomeData.forEach((data, i) => {
-      tempObj.position.set(data.position[0], data.position[1], data.position[2]);
-      tempObj.scale.setScalar(0.8 + Math.random() * 0.4);
-      tempObj.updateMatrix();
-      ribosomesRef.current!.setMatrixAt(i, tempObj.matrix);
-    });
-    ribosomesRef.current.instanceMatrix.needsUpdate = true;
-  }, [ribosomeData]);
-
   useFrame(({ clock }) => {
-    if (groupRef.current) {
-      const t = clock.getElapsedTime();
-      groupRef.current.rotation.z = Math.sin(t * 0.1) * 0.02;
-      groupRef.current.position.y = Math.sin(t * 0.15) * 0.05;
-    }
+     if (groupRef.current) {
+         const t = clock.getElapsedTime();
+         groupRef.current.rotation.z = Math.sin(t * 0.1) * 0.03;
+     }
   });
-
-  const getGeometry = (type: string) => {
-    switch (type) {
-      case 'large': return largeGeom;
-      case 'medium': return medGeom;
-      case 'small': return smallGeom;
-      default: return medGeom;
-    }
-  };
 
   return (
     <group ref={groupRef} {...handlers}>
-      {/* Cisternae sheets */}
-      {cisternaStacks.map((stack, i) => (
-        <mesh
-          key={`cisterna-${i}`}
-          geometry={getGeometry(stack.geometry)}
-          position={stack.position as [number, number, number]}
-          rotation={stack.rotation as [number, number, number]}
-          scale={stack.scale}
-          castShadow
+      {rerLayers.map((layer, i) => (
+        <mesh 
+          key={i} 
+          position={layer.pos as [number, number, number]} 
+          rotation={layer.rot as [number, number, number]}
+          castShadow 
           receiveShadow
         >
-          <meshStandardMaterial
-            color={COLORS.RER}
-            emissive={hovered && !activeFeature ? '#003333' : '#001515'}
-            emissiveIntensity={0.3}
-            roughness={0.4}
-            metalness={0.1}
-            side={THREE.DoubleSide}
-            transparent={transparent}
-            opacity={opacity * 0.85}
+          <torusGeometry args={[layer.radius, layer.tube, 20, 100, Math.PI * 1.8]} />
+          <meshStandardMaterial 
+            color={COLORS.RER} 
+            emissive={hovered && !activeFeature ? '#003333' : '#000000'}
+            roughness={0.5}
             bumpMap={ribosomeTexture}
-            bumpScale={0.08}
+            bumpScale={0.15} 
+            transparent={transparent}
+            opacity={opacity}
           />
         </mesh>
       ))}
-
-      {/* Instanced ribosomes - small spheres on the cisternae */}
-      <instancedMesh ref={ribosomesRef} args={[undefined, undefined, ribosomeData.length]} castShadow>
-        <sphereGeometry args={[0.06, 8, 8]} />
-        <meshStandardMaterial
-          color={'#2aa8a8'}
-          emissive={hovered && !activeFeature ? '#104040' : '#000000'}
-          roughness={0.6}
-          transparent={transparent}
-          opacity={opacity}
-        />
-      </instancedMesh>
-
       {isSelected && <OrganelleLabel text="Rough ER (Factory Floor)" position={[-5, 5, 0]} />}
     </group>
   );
 };
 
-// --- Single Mitochondrion with Cristae ---
-const Mitochondrion: React.FC<{
-  position: [number, number, number];
-  rotation: [number, number, number];
-  scale: number;
-  hovered: boolean;
-  activeFeature: string | null;
-  opacity: number;
-  transparent: boolean;
-}> = ({ position, rotation, scale, hovered, activeFeature, opacity, transparent }) => {
-  const length = 0.8 * scale;
-  const radius = 0.2 * scale;
-
-  // Generate cristae (inner membrane folds)
-  const cristae = useMemo(() => {
-    const folds = [];
-    const numFolds = 4;
-    for (let i = 0; i < numFolds; i++) {
-      folds.push({
-        yPos: (i - (numFolds - 1) / 2) * (length / (numFolds + 1)),
-        rotZ: (Math.random() - 0.5) * 0.4
-      });
-    }
-    return folds;
-  }, [length]);
-
-  return (
-    <group position={position} rotation={rotation}>
-      {/* Outer membrane */}
-      <mesh castShadow>
-        <capsuleGeometry args={[radius, length, 8, 16]} />
-        <meshPhysicalMaterial
-          color={COLORS.MITOCHONDRIA}
-          emissive={hovered && !activeFeature ? '#401010' : '#150505'}
-          emissiveIntensity={0.3}
-          roughness={0.35}
-          clearcoat={0.2}
-          transparent={transparent}
-          opacity={opacity * 0.85}
-        />
-      </mesh>
-
-      {/* Inner membrane (slightly smaller) */}
-      <mesh>
-        <capsuleGeometry args={[radius * 0.85, length * 0.9, 8, 16]} />
-        <meshStandardMaterial
-          color={'#ff7766'}
-          emissive={'#301008'}
-          emissiveIntensity={0.4}
-          roughness={0.5}
-          transparent={transparent}
-          opacity={opacity * 0.7}
-        />
-      </mesh>
-
-      {/* Cristae - inner membrane folds */}
-      {cristae.map((crista, i) => (
-        <mesh key={i} position={[0, crista.yPos, 0]} rotation={[Math.PI / 2, 0, crista.rotZ]}>
-          <torusGeometry args={[radius * 0.6, 0.02 * scale, 8, 16, Math.PI]} />
-          <meshStandardMaterial
-            color={'#ff8877'}
-            emissive={'#401510'}
-            emissiveIntensity={0.5}
-            roughness={0.5}
-            transparent={transparent}
-            opacity={opacity * 0.9}
-          />
-        </mesh>
-      ))}
-
-      {/* Matrix (inner space) glow */}
-      <mesh>
-        <capsuleGeometry args={[radius * 0.5, length * 0.6, 6, 12]} />
-        <meshStandardMaterial
-          color={'#ffaa88'}
-          emissive={'#ff6644'}
-          emissiveIntensity={0.3}
-          transparent={true}
-          opacity={opacity * 0.3}
-        />
-      </mesh>
-    </group>
-  );
-};
-
-// --- Mitochondria (Enhanced with cristae detail) ---
+// --- Mitochondria ---
 export const Mitochondria: React.FC<OrganelleProps> = ({ onSelect, activeFeature }) => {
-  const count = 25; // Fewer but more detailed
+  const count = 35;
+  const meshRef = useRef<THREE.InstancedMesh>(null);
   const { hovered, handlers } = useInteraction("Mitochondria", onSelect);
   const isSelected = activeFeature === "Mitochondria";
   const { opacity, transparent } = useFadeLogic("Mitochondria", activeFeature);
-
+  
   const instances = useMemo(() => {
     const temp = [];
     for (let i = 0; i < count; i++) {
-      // Scatter in elongated volume (x from -8 to +6)
-      const x = (Math.random() - 0.7) * 12; // Bias towards negative x
-      const y = (Math.random() - 0.5) * 5;
-      const z = (Math.random() - 0.5) * 5;
-
-      // Simple bounding check - avoid nucleus area
-      const distToNuc = Math.sqrt(
-        Math.pow(x - DIMENSIONS.NUCLEUS_OFFSET[0], 2) +
-        Math.pow(y - DIMENSIONS.NUCLEUS_OFFSET[1], 2) +
-        Math.pow(z - DIMENSIONS.NUCLEUS_OFFSET[2], 2)
-      );
-
-      if (Math.sqrt(y * y + z * z) < 5 && distToNuc > DIMENSIONS.NUCLEUS_RADIUS + 0.5) {
-        temp.push({
-          position: [x, y, z] as [number, number, number],
-          rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * 0.5] as [number, number, number],
-          scale: 0.7 + Math.random() * 0.5
-        });
-      }
+        // Scatter in elongated volume (x from -8 to +6)
+        const x = (Math.random() - 0.7) * 12; // Bias towards negative x
+        const y = (Math.random() - 0.5) * 6;
+        const z = (Math.random() - 0.5) * 6;
+        
+        // Simple bounding check
+        if (Math.sqrt(y*y + z*z) < 6) {
+           temp.push({ 
+               position: [x, y, z], 
+               rotation: [Math.random() * Math.PI, Math.random() * Math.PI, 0],
+               scale: 0.8 + Math.random() * 0.4 
+           });
+        }
     }
     return temp;
   }, []);
 
+  useLayoutEffect(() => {
+      if (!meshRef.current) return;
+      const tempObj = new THREE.Object3D();
+      instances.forEach((data, i) => {
+          tempObj.position.set(data.position[0], data.position[1], data.position[2]);
+          tempObj.rotation.set(data.rotation[0], data.rotation[1], data.rotation[2]);
+          tempObj.scale.setScalar(data.scale);
+          tempObj.updateMatrix();
+          meshRef.current!.setMatrixAt(i, tempObj.matrix);
+      });
+      meshRef.current.instanceMatrix.needsUpdate = true;
+  }, [instances]);
+
   return (
     <group {...handlers}>
-      {instances.map((data, i) => (
-        <Mitochondrion
-          key={i}
-          position={data.position}
-          rotation={data.rotation}
-          scale={data.scale}
-          hovered={hovered}
-          activeFeature={activeFeature}
-          opacity={opacity}
-          transparent={transparent}
-        />
-      ))}
+      <instancedMesh ref={meshRef} args={[undefined, undefined, count]} castShadow>
+          <capsuleGeometry args={[0.2, 0.8, 4, 8]} />
+          <meshStandardMaterial 
+            color={COLORS.MITOCHONDRIA} 
+            emissive={hovered && !activeFeature ? '#401010' : '#000000'}
+            roughness={0.4} 
+            transparent={transparent}
+            opacity={opacity}
+          />
+      </instancedMesh>
       {isSelected && <OrganelleLabel text="Mitochondria (Power)" position={[-4, -3, 3]} />}
     </group>
   );
